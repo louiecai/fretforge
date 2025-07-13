@@ -1,4 +1,4 @@
-import {type Accidental, Accidentals, type PitchClass} from './constants';
+import { type Accidental, Accidentals, type PitchClass } from './constants';
 
 export class Note {
   pitchClass: PitchClass;
@@ -16,8 +16,8 @@ export class Note {
   }
 
   static getNoteName(index: number, preferFlat = false): string {
-    const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    const SHARP_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+    const FLAT_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
     return preferFlat ? FLAT_NAMES[index] : SHARP_NAMES[index];
   }
 

@@ -8,6 +8,7 @@ interface FretboardGridProps {
   highlightedNotes: Record<string, string[]>; // Updated to include colors for overlapping scales
   preferFlat: boolean;
   hasScalesSelected?: boolean; // Indicates if any scales are selected
+  blendOverlaps?: boolean;
   onNoteHoverStart: (info: { string: number; fret: number; noteStr: string; x: number; y: number }) => void;
   onNoteHoverEnd: () => void;
 }
@@ -17,6 +18,7 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
   highlightedNotes,
   preferFlat,
   hasScalesSelected = false,
+  blendOverlaps = false,
   onNoteHoverStart,
   onNoteHoverEnd,
 }) => {
@@ -24,9 +26,9 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
 
   return (
     <div
-      className="grid gap-[1px] bg-gray-700 min-w-max"
+      className="grid gap-[1px] bg-[#23272F] w-full"
       style={{
-        gridTemplateColumns: `minmax(30px, 50px) repeat(${numFrets}, minmax(30px, 50px))`,
+        gridTemplateColumns: `minmax(30px, 1fr) repeat(${numFrets}, minmax(30px, 1fr)) 24px`, // Add dummy column
         fontSize: 'clamp(8px, 2vw, 12px)'
       }}
     >
@@ -37,10 +39,11 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
           {i}
         </div>
       ))}
+      <div /> {/* Dummy column for right margin */}
 
       {/* Strings */}
       {[...board].reverse().map((stringRow, stringIndex) => {
-        const trueIndex = 5 - stringIndex;
+        const trueIndex = board.length - 1 - stringIndex;
         return (
           <React.Fragment key={trueIndex}>
             <div className="text-xs text-right pr-2 py-2 text-gray-400">{trueIndex + 1}</div>
@@ -49,13 +52,11 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
                 return (
                   <div
                     key={`s${trueIndex}-f${fret}`}
-                    className={`bg-gray-800 border border-gray-600 ${fret === 0 ? 'border-r-[6px] border-r-gray-500' : ''
-                      }`}
+                    className={`bg-gray-800 border border-gray-600 ${fret === 0 ? 'border-r-[6px] border-r-gray-500' : ''}`}
                     style={{
                       height: 'clamp(30px, 8vw, 40px)',
-                      width: 'clamp(30px, 8vw, 50px)',
                       minHeight: '30px',
-                      minWidth: '30px'
+                      width: '100%'
                     }}
                   />
                 ); // Render empty grid cell for hidden notes
@@ -70,6 +71,7 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
                   colors={colors} // Pass multiple colors for overlapping scales
                   isNut={fret === 0} // Pass nut indicator
                   hasScalesSelected={hasScalesSelected}
+                  blendOverlaps={blendOverlaps}
                   onHoverStart={(e) => {
                     const rect = (e.target as HTMLElement).getBoundingClientRect();
                     onNoteHoverStart({
@@ -84,11 +86,13 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
                 />
               );
             })}
+            <div /> {/* Dummy column for right margin */}
           </React.Fragment>
         );
       })}
 
       <FretMarkersRow numFrets={numFrets - 1} />
+      <div /> {/* Dummy column for right margin under markers row */}
     </div>
   );
 };

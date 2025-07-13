@@ -5,7 +5,7 @@ interface ColorPickerProps {
 }
 
 const ColorPicker: React.FC<ColorPickerProps> = ({ onColorChange }) => {
-  const [color, setColor] = useState('#0000ff'); // Default color is blue
+  const [color, setColor] = useState('#444447'); // Default color is neutral grey
   let debounceTimeout: NodeJS.Timeout | null = null;
 
   const handleColorChange = (event: React.ChangeEvent<HTMLInputElement>) => {
