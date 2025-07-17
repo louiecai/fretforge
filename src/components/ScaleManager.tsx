@@ -27,10 +27,6 @@ interface ScaleManagerProps {
   scales: Scale[];
   /** Callback to update the list of scales/chords */
   onScalesChange: (scales: Scale[]) => void;
-  /** Whether to show scales on the fretboard */
-  showScales?: boolean;
-  /** Callback to toggle showing scales */
-  onShowScalesChange?: (show: boolean) => void;
   /** Map of note overrides (note name to color) */
   noteOverrides?: Record<string, string>;
   /** Callback to update note overrides */
@@ -58,8 +54,6 @@ const SCALE_TYPES = [
   { value: 'dim7', label: 'Diminished 7th Chord', group: 'chord' },
   { value: 'm7b5', label: 'Half-diminished 7th (m7♭5)', group: 'chord' },
 ];
-
-const defaultColor = '#0074D9';
 
 // Predefined color palette for consistent but varied colors
 const colorPalette = [
@@ -178,8 +172,6 @@ const getScaleNotes = (root: string, scaleType: string, preferFlat: boolean): st
 const ScaleManager: React.FC<ScaleManagerProps> = ({
   scales,
   onScalesChange,
-  showScales = true,
-  onShowScalesChange,
   noteOverrides = {},
   onNoteOverridesChange,
   preferFlat = false

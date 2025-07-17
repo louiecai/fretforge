@@ -141,7 +141,7 @@ function getChromaticDegrees(tritoneLabel: string = '♭5'): Record<number, stri
 /**
  * Displays a single note cell on the fretboard grid.
  */
-const FretboardNote: React.FC<FretboardNoteProps> = ({ note, colors, isNut = false, hasScalesSelected = false, blendOverlaps = false, onHoverStart, onHoverEnd, onClick, noteCenter, displayMode, tritoneLabel, selected, onSelect, onDragOver, onDragEnd, selectedBorders, lastRow, lastCol, firstRow, firstCol }) => {
+const FretboardNote: React.FC<FretboardNoteProps> = ({ note, colors, isNut = false, hasScalesSelected = false, blendOverlaps = false, onHoverStart, onHoverEnd, onSelect, onDragOver, onDragEnd, noteCenter, displayMode, tritoneLabel, selected, selectedBorders, lastRow, lastCol, firstRow, firstCol }) => {
   const hasColors = colors && colors.length > 0;
   const cellColor = hasColors
     ? (blendOverlaps && colors.length > 1 ? blendColors(colors) : colors[0])
@@ -209,7 +209,7 @@ const FretboardNote: React.FC<FretboardNoteProps> = ({ note, colors, isNut = fal
       }}
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
-      onClick={hasColors && onSelect ? onSelect : undefined}
+      onClick={onSelect ? onSelect : undefined}
       onMouseOver={onDragOver ? onDragOver : undefined}
       onMouseUp={onDragEnd ? onDragEnd : undefined}
     >

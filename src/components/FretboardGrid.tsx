@@ -5,7 +5,7 @@
  * Used as the main visualization component in FretForge.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Note } from '../lib/Note';
 import FretboardNote from './FretboardNote';
 import FretMarkersRow from './FretMarkersRow';
@@ -71,15 +71,14 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
 }) => {
   const numFrets = board[0].length;
   const firstFretRef = useRef<HTMLDivElement | null>(null);
-  const [nutLeft, setNutLeft] = useState(40); // default fallback
 
   useEffect(() => {
     if (firstFretRef.current) {
-      setNutLeft(firstFretRef.current.offsetLeft + firstFretRef.current.offsetWidth);
+      // setNutLeft(firstFretRef.current.offsetLeft + firstFretRef.current.offsetWidth); // Removed unused variable
     }
     const handleResize = () => {
       if (firstFretRef.current) {
-        setNutLeft(firstFretRef.current.offsetLeft + firstFretRef.current.offsetWidth);
+        // setNutLeft(firstFretRef.current.offsetLeft + firstFretRef.current.offsetWidth); // Removed unused variable
       }
     };
     window.addEventListener('resize', handleResize);
@@ -155,7 +154,7 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
                         isNut={fret === 0}
                         hasScalesSelected={hasScalesSelected}
                         blendOverlaps={blendOverlaps}
-                        onHoverStart={e => onNoteHoverStart({ string: trueIndex, fret, noteStr: label, x: 0, y: 0 })}
+                        onHoverStart={() => onNoteHoverStart({ string: trueIndex, fret, noteStr: label, x: 0, y: 0 })}
                         onHoverEnd={onNoteHoverEnd}
                         onClick={onNoteClick ? () => onNoteClick(label, trueIndex, fret) : undefined}
                         selected={isSelected}

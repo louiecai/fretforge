@@ -1,12 +1,11 @@
 import * as htmlToImage from 'html-to-image';
 import Cookies from 'js-cookie';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Accidentals, type PitchClass } from '../lib/constants'; // Corrected import for PitchClass
 import { Fretboard, stringTuningToNotes } from '../lib/Fretboard';
 import { Note } from '../lib/Note';
 import FretboardGrid from './FretboardGrid';
 import ScaleManager from './ScaleManager';
-import Settings from './Settings';
 import SettingsModal from './SettingsModal';
 import Tooltip from './Tooltip';
 import Topbar from './Topbar';
@@ -40,10 +39,7 @@ const FretboardVisualizer: React.FC<Props> = ({
   const [highlightedNotes, setHighlightedNotes] = useState<Record<string, string[]>>({});
   const [blendOverlaps, setBlendOverlaps] = useState(cookiePrefs?.blendOverlaps ?? false);
   const [showFretMarkers, setShowFretMarkers] = useState(cookiePrefs?.showFretMarkers ?? true);
-  const [showScales, setShowScales] = useState(cookiePrefs?.showScales ?? true);
-  const [customScaleMode, setCustomScaleMode] = useState(false);
   const [customScaleNotes, setCustomScaleNotes] = useState<string[]>([]);
-  const [customScaleColor, setCustomScaleColor] = useState('#FF6B6B');
   const [noteOverrides, setNoteOverrides] = useState<Record<string, string>>(cookiePrefs?.noteOverrides ?? {});
   const [tritoneLabel, setTritoneLabel] = useState('♭5');
 
@@ -96,7 +92,6 @@ const FretboardVisualizer: React.FC<Props> = ({
     // Extract note name from key
     const match = key.match(/^s\d+-f(\d+)$/);
     if (!match) return;
-    const fretIdx = parseInt(match[1]);
     // Find the note name for this cell
     let noteName = '';
     outer: for (let s = 0; s < board.length; ++s) {
@@ -177,10 +172,6 @@ const FretboardVisualizer: React.FC<Props> = ({
     setManuallySelectedNotes(new Set());
   };
 
-  const noteOptions = [
-    'C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'
-  ];
-
   const fretboard = React.useMemo(() => {
     try {
       const tuningNotes = stringTuningToNotes(tuning);
@@ -216,11 +207,6 @@ const FretboardVisualizer: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    if (!showScales) {
-      setHighlightedNotes({});
-      return;
-    }
-
     const highlightedNotes: Record<string, string[]> = {};
 
     // Add regular scales
@@ -269,14 +255,6 @@ const FretboardVisualizer: React.FC<Props> = ({
       });
     });
 
-    // Add current custom scale being built
-    if (customScaleMode && customScaleNotes.length > 0) {
-      customScaleNotes.forEach((noteStr) => {
-        if (!highlightedNotes[noteStr]) highlightedNotes[noteStr] = [];
-        highlightedNotes[noteStr].push(customScaleColor);
-      });
-    }
-
     // Apply note overrides - these take precedence over all other colors
     Object.entries(noteOverrides).forEach(([note, color]) => {
       if (highlightedNotes[note]) {
@@ -287,7 +265,7 @@ const FretboardVisualizer: React.FC<Props> = ({
     });
 
     setHighlightedNotes(highlightedNotes);
-  }, [scales, currentPreferFlat, fretboard, showScales, customScaleMode, customScaleNotes, customScaleColor, noteOverrides]);
+  }, [scales, currentPreferFlat, fretboard, customScaleNotes, noteOverrides]);
 
   // Handle mode switching - sync selectedNotes with manuallySelectedNotes when switching to normal mode
   useEffect(() => {
@@ -378,9 +356,7 @@ const FretboardVisualizer: React.FC<Props> = ({
     link.click();
   };
 
-  const handleNoteClick = (note: string, stringIndex: number, fret: number) => {
-    if (!customScaleMode) return;
-
+  const handleNoteClick = (note: string) => {
     const noteStr = note.replace(/[0-9]/g, '');
     setCustomScaleNotes(prev => {
       const index = prev.indexOf(noteStr);
@@ -390,26 +366,6 @@ const FretboardVisualizer: React.FC<Props> = ({
         return [...prev, noteStr];
       }
     });
-  };
-
-  const handleSaveCustomScale = () => {
-    if (customScaleNotes.length === 0) return;
-
-    const newScale = {
-      scale: 'custom',
-      root: customScaleNotes[0],
-      color: customScaleColor,
-      hidden: false
-    };
-
-    setScales(prev => [...prev, newScale]);
-    setCustomScaleNotes([]);
-    setCustomScaleMode(false);
-  };
-
-  const handleCancelCustomScale = () => {
-    setCustomScaleNotes([]);
-    setCustomScaleMode(false);
   };
 
   // Add global mouseup listener to end drag-select
@@ -557,11 +513,8 @@ const FretboardVisualizer: React.FC<Props> = ({
                 <ScaleManager
                   scales={scales}
                   onScalesChange={setScales}
-                  showScales={showScales}
-                  onShowScalesChange={setShowScales}
                   noteOverrides={noteOverrides}
                   onNoteOverridesChange={setNoteOverrides}
-                  preferFlat={currentPreferFlat}
                 />
               </div>
             </section>
@@ -573,8 +526,6 @@ const FretboardVisualizer: React.FC<Props> = ({
         onClose={() => setSettingsOpen(false)}
         numFrets={currentNumFrets}
         onNumFretsChange={setCurrentNumFrets}
-        preferFlat={currentPreferFlat}
-        onPreferFlatChange={setCurrentPreferFlat}
         numStrings={numStrings}
         onNumStringsChange={setNumStrings}
         tuning={tuning}

@@ -5,8 +5,6 @@ interface SettingsModalProps {
     onClose: () => void;
     numFrets: number;
     onNumFretsChange: (n: number) => void;
-    preferFlat: boolean;
-    onPreferFlatChange: (b: boolean) => void;
     numStrings: number;
     onNumStringsChange: (n: number) => void;
     tuning: string[];
@@ -31,7 +29,7 @@ const STANDARD_TUNINGS: Record<number, string[]> = {
 };
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
-    open, onClose, numFrets, onNumFretsChange, preferFlat, onPreferFlatChange, numStrings, onNumStringsChange, tuning, onTuningChange, blendOverlaps, onBlendOverlapsChange, showFretMarkers, onShowFretMarkersChange, tritoneLabel, onTritoneLabelChange
+    open, onClose, numFrets, onNumFretsChange, numStrings, onNumStringsChange, tuning, onTuningChange, blendOverlaps, onBlendOverlapsChange, showFretMarkers, onShowFretMarkersChange, tritoneLabel, onTritoneLabelChange
 }) => {
     if (!open) return null;
     return (
