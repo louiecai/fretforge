@@ -1,6 +1,17 @@
+/**
+ * ScaleSelector.tsx
+ *
+ * Provides a dropdown selector for choosing a scale type and root note.
+ * All note names use unicode symbols for sharps (♯) and flats (♭).
+ */
+
 import React, { useState } from 'react';
 
+/**
+ * Props for ScaleSelector component.
+ */
 interface ScaleSelectorProps {
+  /** Callback when the scale or root changes */
   onScaleChange: (scale: string, root: string) => void;
 }
 
@@ -8,12 +19,20 @@ const ScaleSelector: React.FC<ScaleSelectorProps> = ({ onScaleChange }) => {
   const [scale, setScale] = useState('diatonicMinor'); // Default to diatonicMinor
   const [root, setRoot] = useState('C'); // Default to C
 
+  /**
+   * Handles the change of the scale type.
+   * @param event - The event triggered by the scale dropdown.
+   */
   const handleScaleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newScale = event.target.value;
     setScale(newScale);
     onScaleChange(newScale, root);
   };
 
+  /**
+   * Handles the change of the root note.
+   * @param event - The event triggered by the root dropdown.
+   */
   const handleRootChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newRoot = event.target.value;
     setRoot(newRoot);
@@ -45,7 +64,7 @@ const ScaleSelector: React.FC<ScaleSelectorProps> = ({ onScaleChange }) => {
           onChange={handleRootChange}
           className="ml-2 p-1 sm:p-2 bg-gray-800 text-white rounded text-xs sm:text-sm"
         >
-          {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map(note => (
+          {['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'].map(note => (
             <option key={note} value={note}>{note}</option>
           ))}
         </select>

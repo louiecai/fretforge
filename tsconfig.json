@@ -6,6 +6,8 @@
   ],
   "compilerOptions": {
     "isolatedModules": false,
-    "erasableSyntaxOnly": false
+    "erasableSyntaxOnly": false,
+    "esModuleInterop": true,
+    "jsx": "react-jsx"
   }
 }
