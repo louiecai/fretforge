@@ -6,6 +6,7 @@ import { Fretboard, stringTuningToNotes } from '../lib/Fretboard';
 import { Note } from '../lib/Note';
 import FretboardGrid from './FretboardGrid';
 import ScaleManager from './ScaleManager';
+import ScaleSelector from './ScaleSelector';
 import SettingsModal from './SettingsModal';
 import Tooltip from './Tooltip';
 import Topbar from './Topbar';
@@ -25,7 +26,26 @@ const FretboardVisualizer: React.FC<Props> = ({
   const cookiePrefs = (() => {
     try {
       const raw = Cookies.get(COOKIE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Validate scales array
+      if (parsed?.scales && !Array.isArray(parsed.scales)) {
+        console.warn('Invalid scales in cookie, resetting preferences.');
+        Cookies.remove(COOKIE_KEY);
+        return null;
+      }
+      if (parsed?.scales && Array.isArray(parsed.scales)) {
+        // Check that each scale has root, scale, color
+        const valid = parsed.scales.every(
+          (s: any) => s && typeof s.root === 'string' && typeof s.scale === 'string' && typeof s.color === 'string'
+        );
+        if (!valid) {
+          console.warn('Malformed scale objects in cookie, resetting preferences.');
+          Cookies.remove(COOKIE_KEY);
+          return null;
+        }
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -515,6 +535,7 @@ const FretboardVisualizer: React.FC<Props> = ({
                   onScalesChange={setScales}
                   noteOverrides={noteOverrides}
                   onNoteOverridesChange={setNoteOverrides}
+                  preferFlat={currentPreferFlat}
                 />
               </div>
             </section>

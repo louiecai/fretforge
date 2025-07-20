@@ -6,6 +6,21 @@
  * All note names use unicode symbols for sharps (♯) and flats (♭).
  */
 
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+  closestCenter,
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import React, { useEffect, useRef, useState } from 'react';
 import { Note } from '../lib/Note';
 
@@ -63,9 +78,75 @@ const colorPalette = [
   '#FFA726', '#66BB6A', '#26C6DA', '#7E57C2', '#FFCC02', '#EC407A'
 ];
 
-// Function to get a random color from the palette
-const getRandomColor = () => {
-  return colorPalette[Math.floor(Math.random() * colorPalette.length)];
+// Function to calculate Euclidean distance between two hex colors in RGB space
+function colorDistance(hex1: string, hex2: string): number {
+  function hexToRgb(hex: string) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return [r, g, b];
+  }
+  const [r1, g1, b1] = hexToRgb(hex1);
+  const [r2, g2, b2] = hexToRgb(hex2);
+  return Math.sqrt(
+    Math.pow(r1 - r2, 2) +
+    Math.pow(g1 - g2, 2) +
+    Math.pow(b1 - b2, 2)
+  );
+}
+
+/**
+ * Get a random color from the palette that is not very close to any usedColors.
+ * If all are too close, pick the most distinct as fallback.
+ * @param usedColors - Array of hex color strings already in use
+ * @returns A hex color string
+ */
+const getRandomColor = (usedColors: string[] = []) => {
+  const DIST_THRESHOLD = 80; // Minimum distance to consider colors "not very close"
+  // Filter palette for colors not very close to any used color
+  const candidates = colorPalette.filter(candidate =>
+    usedColors.every(used => colorDistance(candidate, used) > DIST_THRESHOLD)
+  );
+  if (candidates.length > 0) {
+    // Pick randomly from sufficiently different candidates
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+  // Fallback: pick the most distinct as before
+  let bestColor = colorPalette[0];
+  let bestDistance = -1;
+  for (const candidate of colorPalette) {
+    // Skip if already used
+    if (usedColors.includes(candidate)) continue;
+    let minDist = Infinity;
+    for (const used of usedColors) {
+      const dist = colorDistance(candidate, used);
+      if (dist < minDist) minDist = dist;
+    }
+    if (minDist > bestDistance) {
+      bestDistance = minDist;
+      bestColor = candidate;
+    }
+  }
+  if (bestDistance === -1) {
+    // All colors are used, pick the one with the highest average distance
+    let maxAvgDist = -1;
+    for (const candidate of colorPalette) {
+      let sumDist = 0;
+      for (const used of usedColors) {
+        sumDist += colorDistance(candidate, used);
+      }
+      const avgDist = sumDist / usedColors.length;
+      if (avgDist > maxAvgDist) {
+        maxAvgDist = avgDist;
+        bestColor = candidate;
+      }
+    }
+  }
+  return bestColor;
 };
 
 /**
@@ -162,6 +243,23 @@ const getScaleNotes = (root: string, scaleType: string, preferFlat: boolean): st
   return [...new Set(noteNames)];
 };
 
+// Sortable item component for each scale/chord
+function SortableScaleRow({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+    zIndex: isDragging ? 50 : undefined,
+    cursor: disabled ? undefined : 'grab',
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
 /**
  * ScaleManager component.
  *
@@ -179,20 +277,20 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
   // State for new scale
   const [newRoot, setNewRoot] = useState('A');
   const [newType, setNewType] = useState('pentatonicMinor');
-  const [newColor, setNewColor] = useState(getRandomColor());
+  const [newColor, setNewColor] = useState(getRandomColor(scales.map(s => s.color)));
 
   // State for new note override
   const [newNoteOverride, setNewNoteOverride] = useState('A');
-  const [newNoteColor, setNewNoteColor] = useState(getRandomColor());
+  const [newNoteColor, setNewNoteColor] = useState(getRandomColor(Object.values(noteOverrides)));
 
   // Local color state for each scale row
   const [colorInputs, setColorInputs] = useState<string[]>(scales.map(s => s.color));
   const debounceTimeouts = useRef<(NodeJS.Timeout | null)[]>([]);
 
-  // Sync colorInputs with scales if scales change (add/remove)
+  // Sync colorInputs with scales if scales change (add/remove or reorder)
   useEffect(() => {
     setColorInputs(scales.map(s => s.color));
-  }, [scales.length]);
+  }, [scales]);
 
   // Update scale roots and newRoot when preferFlat changes
   useEffect(() => {
@@ -216,11 +314,26 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
   const isDuplicate = scales.some(s => s.root === newRoot && s.scale === newType);
   const isValidScaleType = newType && newType !== 'separator' && newType !== 'scalesSeparator' && newType !== '';
   const handleAdd = () => {
-    if (!newRoot || !isValidScaleType || !newColor || isDuplicate) return;
+    if (!newRoot) {
+      console.warn('Cannot add: newRoot is empty');
+      return;
+    }
+    if (!isValidScaleType) {
+      console.warn('Cannot add: invalid scale type');
+      return;
+    }
+    if (!newColor) {
+      console.warn('Cannot add: newColor is empty');
+      return;
+    }
+    if (isDuplicate) {
+      console.warn('Cannot add: duplicate scale/root');
+      return;
+    }
     onScalesChange([...scales, { root: newRoot, scale: newType, color: newColor }]);
     setNewRoot('A');
     setNewType('pentatonicMinor');
-    setNewColor(getRandomColor());
+    setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
   };
 
   // Update scale inline (root/type: immediate, color: debounced)
@@ -264,7 +377,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
     const updatedOverrides = { ...noteOverrides, [newNoteOverride]: newNoteColor };
     onNoteOverridesChange?.(updatedOverrides);
     setNewNoteOverride('A');
-    setNewNoteColor(getRandomColor());
+    setNewNoteColor(getRandomColor([...Object.values(noteOverrides), newNoteColor]));
   };
 
   // Remove note override
@@ -272,6 +385,28 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
     const updatedOverrides = { ...noteOverrides };
     delete updatedOverrides[note];
     onNoteOverridesChange?.(updatedOverrides);
+  };
+
+  // dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  // Helper: get unique id for each scale (root+scale+color)
+  function hashScale(s: Scale) {
+    // Simple hash: root|scale|color
+    return `${s.root}|${s.scale}|${s.color}`;
+  }
+
+  // dnd-kit drag end handler
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = scales.findIndex((s, i) => hashScale(s) === active.id);
+    const newIndex = scales.findIndex((s, i) => hashScale(s) === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newScales = arrayMove(scales, oldIndex, newIndex);
+    onScalesChange(newScales);
   };
 
   return (
@@ -289,7 +424,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             onClick={() => {
               setNewRoot('A');
               setNewType('pentatonicMinor');
-              setNewColor(getRandomColor());
+              setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
           >
@@ -299,7 +434,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             onClick={() => {
               setNewRoot('E');
               setNewType('pentatonicMinor');
-              setNewColor(getRandomColor());
+              setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
           >
@@ -309,7 +444,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             onClick={() => {
               setNewRoot('C');
               setNewType('diatonicMajor');
-              setNewColor(getRandomColor());
+              setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
           >
@@ -319,7 +454,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             onClick={() => {
               setNewRoot('A');
               setNewType('bluesMinor');
-              setNewColor(getRandomColor());
+              setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
           >
@@ -329,7 +464,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             onClick={() => {
               setNewRoot('G');
               setNewType('maj');
-              setNewColor(getRandomColor());
+              setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
           >
@@ -339,7 +474,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             onClick={() => {
               setNewRoot('Am');
               setNewType('min');
-              setNewColor(getRandomColor());
+              setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
           >
@@ -364,7 +499,10 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           </h3>
           {scales.length > 0 && (
             <button
-              onClick={() => onScalesChange([])}
+              onClick={() => {
+                onScalesChange([]);
+                setColorInputs([]);
+              }}
               className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded text-xs font-semibold shadow transition-colors"
             >
               Clear All
@@ -394,7 +532,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             <div className="flex items-center gap-1">
               <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} className="w-10 h-10 p-0 border-2 border-gray-700 rounded focus:ring-2 focus:ring-accent bg-panel" />
               <button
-                onClick={() => setNewColor(getRandomColor())}
+                onClick={() => setNewColor(getRandomColor([...scales.map(s => s.color), newColor]))}
                 className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors"
                 title="Randomize Color"
               >
@@ -407,92 +545,121 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           </div>
         </div>
 
-        <div className="space-y-3">
-          {scales.map((s, idx) => {
-            const scaleNotes = getScaleNotes(s.root, s.scale, preferFlat);
-            return (
-              <div key={idx} className={`w-full flex flex-col sm:flex-row items-center gap-3 p-3 bg-gray-800 rounded-lg shadow border border-gray-600 ${s.hidden ? 'opacity-50' : ''} transition-opacity`}>
-                <span className="w-8 h-8 rounded-full border-2 border-white shadow flex-shrink-0" style={{ background: s.color }} title={s.color} />
-                <select value={s.root} onChange={e => handleEdit(idx, 'root', e.target.value)} className="bg-panel text-textprimary rounded px-3 py-2 text-sm border border-gray-700 focus:ring-2 focus:ring-accent w-full sm:w-auto min-w-0">
-                  {ROOTS.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-                <select value={s.scale} onChange={e => handleEdit(idx, 'scale', e.target.value)} className="bg-panel text-textprimary rounded px-3 py-2 text-sm flex-1 border border-gray-700 focus:ring-2 focus:ring-accent min-w-0">
-                  {SCALE_TYPES.map(st =>
-                    st.group === 'separator'
-                      ? <option key={st.value} value="" disabled>{st.label}</option>
-                      : <option key={st.value} value={st.value}>{st.label}</option>
-                  )}
-                </select>
-                <div className="flex items-center gap-1 min-w-0">
-                  <input type="color" value={colorInputs[idx] ?? s.color} onChange={e => handleEdit(idx, 'color', e.target.value)} className="w-10 h-10 p-0 border-2 border-gray-700 rounded focus:ring-2 focus:ring-accent bg-panel flex-shrink-0" />
-                  <button
-                    onClick={() => handleEdit(idx, 'color', getRandomColor())}
-                    className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors flex-shrink-0"
-                    title="Randomize Color"
-                  >
-                    🎲
-                  </button>
-                </div>
-                <div className="flex items-center gap-1 ml-auto">
-                  {/* Information icon with tooltip */}
-                  <div className="relative group">
-                    <button
-                      className="p-2 text-gray-400 hover:text-blue-400 transition-colors flex-shrink-0"
-                      title="View notes"
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={scales.map(hashScale)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {scales.map((s, idx) => {
+                const scaleNotes = getScaleNotes(s.root, s.scale, preferFlat);
+                const stableId = hashScale(s);
+                // Only allow drag if not hidden
+                return (
+                  <SortableScaleRow key={stableId} id={stableId} disabled={!!s.hidden}>
+                    <div
+                      className={`w-full flex flex-col sm:flex-row items-center gap-3 p-3 bg-gray-800 rounded-lg shadow border border-gray-600 ${s.hidden ? 'opacity-50' : ''} transition-opacity`}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </button>
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                      <div className="font-semibold mb-1">Notes in {s.root} {SCALE_TYPES.find(st => st.value === s.scale)?.label}:</div>
-                      <div className="flex flex-wrap gap-1">
-                        {scaleNotes.map((note, noteIdx) => (
-                          <span key={noteIdx} className="px-2 py-1 bg-gray-700 rounded text-xs">
-                            {note}
-                          </span>
-                        ))}
+                      {/* Drag handle (always visible, but only draggable if not hidden) */}
+                      <button
+                        type="button"
+                        tabIndex={0}
+                        aria-label="Drag to reorder"
+                        className={`flex-shrink-0 text-gray-400 hover:text-gray-300 ${s.hidden ? '' : 'cursor-grab active:cursor-grabbing'}`}
+                        style={{ background: 'none', border: 'none', outline: 'none' }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                        </svg>
+                      </button>
+                      <span className="w-8 h-8 rounded-full border-2 border-white shadow flex-shrink-0" style={{ background: s.color }} title={s.color} />
+                      <select value={s.root} onChange={e => handleEdit(idx, 'root', e.target.value)} className="bg-panel text-textprimary rounded px-3 py-2 text-sm border border-gray-700 focus:ring-2 focus:ring-accent w-full sm:w-auto min-w-0">
+                        {ROOTS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <select value={s.scale} onChange={e => handleEdit(idx, 'scale', e.target.value)} className="bg-panel text-textprimary rounded px-3 py-2 text-sm flex-1 border border-gray-700 focus:ring-2 focus:ring-accent min-w-0">
+                        {SCALE_TYPES.map(st =>
+                          st.group === 'separator'
+                            ? <option key={st.value} value="" disabled>{st.label}</option>
+                            : <option key={st.value} value={st.value}>{st.label}</option>
+                        )}
+                      </select>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <input type="color" value={colorInputs[idx] ?? s.color} onChange={e => handleEdit(idx, 'color', e.target.value)} className="w-10 h-10 p-0 border-2 border-gray-700 rounded focus:ring-2 focus:ring-accent bg-panel flex-shrink-0" />
+                        <button
+                          onClick={() => handleEdit(idx, 'color', getRandomColor([...scales.map(s => s.color), colorInputs[idx] ?? s.color]))}
+                          className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors flex-shrink-0"
+                          title="Randomize Color"
+                        >
+                          🎲
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1 ml-auto">
+                        {/* Information icon with tooltip */}
+                        <div className="relative group">
+                          <button
+                            className="p-2 text-gray-400 hover:text-blue-400 transition-colors flex-shrink-0"
+                            title="View notes"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                            <div className="font-semibold mb-1">Notes in {s.root} {SCALE_TYPES.find(st => st.value === s.scale)?.label}:</div>
+                            <div className="flex flex-wrap gap-1">
+                              {scaleNotes.map((note, noteIdx) => (
+                                <span key={noteIdx} className="px-2 py-1 bg-gray-700 rounded text-xs">
+                                  {note}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleEdit(idx, 'hidden', !s.hidden)}
+                          className={`p-2 rounded transition-colors ${s.hidden ? 'text-gray-400 hover:text-green-500' : 'text-green-500 hover:text-gray-400'} flex-shrink-0`}
+                          title={s.hidden ? 'Show' : 'Hide'}
+                        >
+                          {s.hidden ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleRemove(idx)}
+                          className="text-gray-400 hover:text-red-500 p-2 transition-colors flex-shrink-0"
+                          title="Remove"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
                       </div>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => handleEdit(idx, 'hidden', !s.hidden)}
-                    className={`p-2 rounded transition-colors ${s.hidden ? 'text-gray-400 hover:text-green-500' : 'text-green-500 hover:text-gray-400'} flex-shrink-0`}
-                    title={s.hidden ? 'Show' : 'Hide'}
-                  >
-                    {s.hidden ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleRemove(idx)}
-                    className="text-gray-400 hover:text-red-500 p-2 transition-colors flex-shrink-0"
-                    title="Remove"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
+                  </SortableScaleRow>
+                );
+              })}
+              {scales.length === 0 && (
+                <div className="text-center text-sm text-textsecondary py-8">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <p>No scales added yet.</p>
+                  <p className="text-xs mt-1">Use Quick Add or Add New Scale to get started</p>
                 </div>
-              </div>
-            );
-          })}
-          {scales.length === 0 && (
-            <div className="text-center text-sm text-textsecondary py-8">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <p>No scales added yet.</p>
-              <p className="text-xs mt-1">Use Quick Add or Add New Scale to get started</p>
+              )}
             </div>
-          )}
-        </div>
+          </SortableContext>
+        </DndContext>
       </div>
 
       {/* Note Overrides Section */}
@@ -518,7 +685,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           <div className="flex items-center gap-1">
             <input type="color" value={newNoteColor} onChange={e => setNewNoteColor(e.target.value)} className="w-10 h-10 p-0 border-2 border-gray-700 rounded focus:ring-2 focus:ring-accent bg-panel" />
             <button
-              onClick={() => setNewNoteColor(getRandomColor())}
+              onClick={() => setNewNoteColor(getRandomColor([...Object.values(noteOverrides), newNoteColor]))}
               className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors"
               title="Randomize Color"
             >

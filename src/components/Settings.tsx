@@ -218,15 +218,32 @@ const Settings: React.FC<SettingsProps> = ({
 
                                 <label className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-gray-300 gap-2">
                                     <span>Tritone Degree Label:</span>
-                                    <select
-                                        value={tritoneLabel}
-                                        onChange={e => onTritoneLabelChange(e.target.value)}
-                                        className="bg-gray-700 text-white rounded px-2 py-1 text-xs w-full sm:w-auto"
-                                    >
-                                        <option value="♭5">♭5</option>
-                                        <option value="♯4">♯4</option>
-                                        <option value="♯4/♭5">♯4/♭5</option>
-                                    </select>
+                                    <span className="inline-flex rounded-md shadow-sm w-full sm:w-auto">
+                                        <button
+                                            type="button"
+                                            className={`px-3 py-1 border border-gray-700 rounded-l bg-gray-700 text-xs font-semibold focus:outline-none transition-colors flex-1 sm:flex-none ${tritoneLabel === '♭5' ? 'bg-accent text-white' : 'bg-gray-700 text-textsecondary'}`}
+                                            aria-pressed={tritoneLabel === '♭5'}
+                                            onClick={() => onTritoneLabelChange('♭5')}
+                                        >
+                                            ♭5
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`px-3 py-1 border-t border-b border-gray-700 bg-gray-700 text-xs font-semibold focus:outline-none transition-colors flex-1 sm:flex-none ${tritoneLabel === '♯4' ? 'bg-accent text-white' : 'bg-gray-700 text-textsecondary'}`}
+                                            aria-pressed={tritoneLabel === '♯4'}
+                                            onClick={() => onTritoneLabelChange('♯4')}
+                                        >
+                                            ♯4
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`px-3 py-1 border border-gray-700 rounded-r bg-gray-700 text-xs font-semibold focus:outline-none transition-colors flex-1 sm:flex-none ${tritoneLabel === 'TT' ? 'bg-accent text-white' : 'bg-gray-700 text-textsecondary'}`}
+                                            aria-pressed={tritoneLabel === 'TT'}
+                                            onClick={() => onTritoneLabelChange('TT')}
+                                        >
+                                            TT
+                                        </button>
+                                    </span>
                                 </label>
 
                                 <label className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-gray-300 gap-2">

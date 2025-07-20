@@ -13,9 +13,11 @@ import React, { useState } from 'react';
 interface ScaleSelectorProps {
   /** Callback when the scale or root changes */
   onScaleChange: (scale: string, root: string) => void;
+  /** Whether to display notes as flats (♭) or sharps (♯) */
+  preferFlat?: boolean;
 }
 
-const ScaleSelector: React.FC<ScaleSelectorProps> = ({ onScaleChange }) => {
+const ScaleSelector: React.FC<ScaleSelectorProps> = ({ onScaleChange, preferFlat = false }) => {
   const [scale, setScale] = useState('diatonicMinor'); // Default to diatonicMinor
   const [root, setRoot] = useState('C'); // Default to C
 
@@ -38,6 +40,9 @@ const ScaleSelector: React.FC<ScaleSelectorProps> = ({ onScaleChange }) => {
     setRoot(newRoot);
     onScaleChange(scale, newRoot);
   };
+
+  // Generate root note options based on preferFlat
+  const ROOTS = Array.from({ length: 12 }, (_, i) => require('../lib/Note').Note.getNoteName(i, preferFlat));
 
   return (
     <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
@@ -64,7 +69,7 @@ const ScaleSelector: React.FC<ScaleSelectorProps> = ({ onScaleChange }) => {
           onChange={handleRootChange}
           className="ml-2 p-1 sm:p-2 bg-gray-800 text-white rounded text-xs sm:text-sm"
         >
-          {['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'].map(note => (
+          {ROOTS.map(note => (
             <option key={note} value={note}>{note}</option>
           ))}
         </select>

@@ -118,11 +118,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="text-sm text-white">Tritone Label</span>
-                        <input
-                            value={tritoneLabel}
-                            onChange={e => onTritoneLabelChange(e.target.value)}
-                            className="bg-gray-700 text-white rounded px-2 py-1 w-24 text-center"
-                        />
+                        <span className="inline-flex rounded-md shadow-sm">
+                            <button
+                                type="button"
+                                className={`px-3 py-1 border border-gray-600 rounded-l text-xs font-semibold focus:outline-none transition-colors ${tritoneLabel === '♭5' ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300'}`}
+                                aria-pressed={tritoneLabel === '♭5'}
+                                onClick={() => onTritoneLabelChange('♭5')}
+                            >
+                                ♭5
+                            </button>
+                            <button
+                                type="button"
+                                className={`px-3 py-1 border-t border-b border-gray-600 rounded-r text-xs font-semibold focus:outline-none transition-colors ${tritoneLabel === '♯4' ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-300'}`}
+                                aria-pressed={tritoneLabel === '♯4'}
+                                onClick={() => onTritoneLabelChange('♯4')}
+                            >
+                                ♯4
+                            </button>
+                        </span>
                     </div>
                 </div>
                 {/* Keyboard Shortcuts Panel */}
