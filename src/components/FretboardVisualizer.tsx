@@ -83,7 +83,6 @@ const FretboardVisualizer: React.FC<Props> = ({
     scales: { scale: string; root: string; color: string; hidden?: boolean }[];
     noteOverrides: Record<string, string>;
   } | null>(null);
-  const [pendingImport, setPendingImport] = useState(false);
   const [importDropzoneOpen, setImportDropzoneOpen] = useState(false);
 
   /**

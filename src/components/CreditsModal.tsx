@@ -25,7 +25,7 @@ const CreditsModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, 
                 setCreditData(data);
                 setLoading(false);
             })
-            .catch(err => {
+            .catch(() => {
                 setError('Could not load credits.');
                 setLoading(false);
             });
