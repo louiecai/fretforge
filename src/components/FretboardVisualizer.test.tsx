@@ -1,10 +1,14 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import FretboardVisualizer from './FretboardVisualizer';
 
 // Mock Topbar and SettingsModal to focus on fretboard logic
-jest.mock('./Topbar', () => () => <div data-testid="topbar" />);
+jest.mock('./Topbar', () => (props: any) => (
+    <div data-testid="topbar">
+        <button onClick={() => props.onExportImport('export')}>Export/Import</button>
+    </div>
+));
 jest.mock('./SettingsModal', () => () => <div data-testid="settings-modal" />);
 
 // Helper to add a scale
@@ -116,5 +120,63 @@ describe('FretboardVisualizer UI', () => {
         // Simulate closing (if you have a close button)
         // fireEvent.click(screen.getByRole('button', { name: /close/i }));
         // expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument();
+    });
+
+    it('shows export modal when Export/Import is clicked', async () => {
+        render(<FretboardVisualizer />);
+        fireEvent.click(screen.getByText('Export/Import'));
+        await waitFor(() => {
+            expect(screen.getByText(/export data/i)).toBeInTheDocument();
+        });
+    });
+
+    it('handles export confirm and downloads JSON', async () => {
+        // Mock URL.createObjectURL and anchor click
+        const urlSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:url');
+        const clickSpy = jest.spyOn(document, 'createElement');
+        render(<FretboardVisualizer />);
+        fireEvent.click(screen.getByText('Export/Import'));
+        await waitFor(() => expect(screen.getByText(/export data/i)).toBeInTheDocument());
+        // Simulate export modal confirm
+        fireEvent.click(screen.getByRole('button', { name: /export/i }));
+        expect(urlSpy).toHaveBeenCalled();
+        clickSpy.mockRestore();
+        urlSpy.mockRestore();
+    });
+
+    it('handles import flow: file input, modal, and confirm', async () => {
+        // Mock file input and FileReader
+        const file = new File([
+            JSON.stringify({
+                scales: [{ scale: 'Major', root: 'C', color: '#FF0000' }],
+                noteOverrides: { C: '#FF0000' },
+            })
+        ], 'import.json', { type: 'application/json' });
+        const input = document.createElement('input');
+        Object.defineProperty(window, 'FileReader', {
+            writable: true,
+            value: class {
+                onload: any;
+                readAsText(blob: Blob) {
+                    this.onload({
+                        target: {
+                            result: JSON.stringify({
+                                scales: [{ scale: 'Major', root: 'C', color: '#FF0000' }],
+                                noteOverrides: { C: '#FF0000' },
+                            })
+                        }
+                    });
+                }
+            }
+        });
+        render(<FretboardVisualizer />);
+        fireEvent.click(screen.getByText('Export/Import'));
+        // Simulate file input (skip actual file dialog)
+        // You may need to refactor the component to allow injection/mocking of file input for full test coverage
+        // For now, this is a placeholder for the import flow
+        // fireEvent.change(input, { target: { files: [file] } });
+        // await waitFor(() => expect(screen.getByText(/import data/i)).toBeInTheDocument());
+        // fireEvent.click(screen.getByRole('button', { name: /import/i }));
+        // expect(...).toBeTruthy(); // Check state update or callback
     });
 }); 

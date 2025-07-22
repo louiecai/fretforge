@@ -402,8 +402,8 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = scales.findIndex((s, i) => hashScale(s) === active.id);
-    const newIndex = scales.findIndex((s, i) => hashScale(s) === over.id);
+    const oldIndex = scales.findIndex((s) => hashScale(s) === active.id);
+    const newIndex = scales.findIndex((s) => hashScale(s) === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const newScales = arrayMove(scales, oldIndex, newIndex);
     onScalesChange(newScales);
@@ -560,16 +560,16 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
                 const stableId = hashScale(s);
                 // Only allow drag if not hidden
                 return (
-                  <SortableScaleRow key={stableId} id={stableId} disabled={!!s.hidden}>
+                  <SortableScaleRow key={stableId} id={stableId}>
                     <div
                       className={`w-full flex flex-col sm:flex-row items-center gap-3 p-3 bg-gray-800 rounded-lg shadow border border-gray-600 ${s.hidden ? 'opacity-50' : ''} transition-opacity`}
                     >
-                      {/* Drag handle (always visible, but only draggable if not hidden) */}
+                      {/* Drag handle (always visible, always draggable) */}
                       <button
                         type="button"
                         tabIndex={0}
                         aria-label="Drag to reorder"
-                        className={`flex-shrink-0 text-gray-400 hover:text-gray-300 ${s.hidden ? '' : 'cursor-grab active:cursor-grabbing'}`}
+                        className={`flex-shrink-0 text-gray-400 hover:text-gray-300 cursor-grab active:cursor-grabbing`}
                         style={{ background: 'none', border: 'none', outline: 'none' }}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

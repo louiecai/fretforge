@@ -1,0 +1,10 @@
+{
+    "appName": "FretForge",
+    "version": "1.0",
+    "author": "Louie Cai",
+    "github": "https://github.com/louiecai/fretforge",
+    "description": "Made with ♫ for guitarists.",
+    "acknowledgments": [
+        "Special thanks to Cursor AI for helping me build this app. This project is entirely vibe coded."
+    ]
+}

@@ -91,7 +91,7 @@ const FretboardGrid: React.FC<FretboardGridProps> = ({
       <div
         className="grid gap-0 bg-[#23272F] w-full"
         style={{
-          gridTemplateColumns: `minmax(40px, 1fr) repeat(${numFrets}, minmax(48px, 1fr)) 32px`,
+          gridTemplateColumns: `minmax(40px, auto) repeat(${numFrets}, minmax(48px, 40px)) 32px`,
           fontSize: 'clamp(10px, 2vw, 14px)',
           // Removed borderBottom and borderRight to eliminate floating border
         }}

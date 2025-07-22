@@ -19,7 +19,9 @@
     "html-to-image": "^1.11.13",
     "js-cookie": "^3.0.5",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-dropzone": "^14.3.8",
+    "react-select": "^5.10.2"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.28.0",

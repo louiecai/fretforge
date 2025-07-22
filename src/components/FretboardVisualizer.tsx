@@ -4,9 +4,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Accidentals, type PitchClass } from '../lib/constants'; // Corrected import for PitchClass
 import { Fretboard, stringTuningToNotes } from '../lib/Fretboard';
 import { Note } from '../lib/Note';
+import CreditsModal from './CreditsModal';
 import FretboardGrid from './FretboardGrid';
+import ImportDropzoneModal from './ImportDropzoneModal';
+import SaveLoadConfirmModal from './SaveLoadConfirmModal';
 import ScaleManager from './ScaleManager';
-import ScaleSelector from './ScaleSelector';
 import SettingsModal from './SettingsModal';
 import Tooltip from './Tooltip';
 import Topbar from './Topbar';
@@ -75,9 +77,92 @@ const FretboardVisualizer: React.FC<Props> = ({
   const [dragToggled, setDragToggled] = useState<Set<string>>(new Set());
   const [manuallySelectedNotes, setManuallySelectedNotes] = useState<Set<string>>(new Set());
 
+  const [saveLoadModalOpen, setSaveLoadModalOpen] = useState(false);
+  const [saveLoadMode, setSaveLoadMode] = useState<'export' | 'import'>('export');
+  const [importData, setImportData] = useState<{
+    scales: { scale: string; root: string; color: string; hidden?: boolean }[];
+    noteOverrides: Record<string, string>;
+  } | null>(null);
+  const [pendingImport, setPendingImport] = useState(false);
+  const [importDropzoneOpen, setImportDropzoneOpen] = useState(false);
 
+  /**
+   * Handle Export/Import dropdown selection
+   */
+  const handleExportImport = (type: 'export' | 'import') => {
+    setSaveLoadMode(type);
+    if (type === 'export') {
+      setSaveLoadModalOpen(true);
+    } else {
+      setImportDropzoneOpen(true);
+    }
+  };
 
+  /**
+   * Handle export confirm: download selected data as JSON
+   */
+  const handleExportConfirm = ({ selectedScales, includeNoteOverrides }: { selectedScales: number[]; includeNoteOverrides: boolean; }) => {
+    const exportScales = selectedScales.map(i => scales[i]);
+    const exportNoteOverrides = includeNoteOverrides ? noteOverrides : {};
+    const data = {
+      scales: exportScales,
+      noteOverrides: exportNoteOverrides,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fretforge-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    setSaveLoadModalOpen(false);
+  };
 
+  /**
+   * Handle import confirm: update state with selected data
+   */
+  const handleImportConfirm = ({ selectedScales, includeNoteOverrides, overrideOnImport, importData: importDataArg }: {
+    selectedScales: number[];
+    includeNoteOverrides: boolean;
+    overrideOnImport?: boolean;
+    importData?: {
+      scales: { scale: string; root: string; color: string; hidden?: boolean }[];
+      noteOverrides: Record<string, string>;
+    };
+  }) => {
+    if (!importDataArg) return;
+    const newScales = selectedScales.map(i => importDataArg.scales[i]);
+    if (overrideOnImport) {
+      setScales(newScales);
+      setNoteOverrides(includeNoteOverrides ? importDataArg.noteOverrides : {});
+    } else {
+      setScales(prev => [...prev, ...newScales]);
+      setNoteOverrides(prev => includeNoteOverrides ? { ...prev, ...importDataArg.noteOverrides } : prev);
+    }
+    setSaveLoadModalOpen(false);
+    setImportData(null);
+  };
+
+  /**
+   * Handle file parsed from ImportDropzoneModal
+   */
+  const handleDropzoneFileParsed = (data: any, error?: string) => {
+    if (error || !data) {
+      // Optionally show error toast
+      return;
+    }
+    // Validate structure
+    if (!Array.isArray(data.scales) || typeof data.noteOverrides !== 'object') {
+      // Optionally show error toast
+      return;
+    }
+    setImportData({
+      scales: data.scales,
+      noteOverrides: data.noteOverrides,
+    });
+    setImportDropzoneOpen(false);
+    setSaveLoadModalOpen(true);
+  };
 
   // Handler to toggle note selection (multi-select is default)
   const handleNoteSelect = (key: string, event: React.MouseEvent) => {
@@ -397,6 +482,7 @@ const FretboardVisualizer: React.FC<Props> = ({
   }, [dragSelecting]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [creditsModalOpen, setCreditsModalOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#181A20] text-textprimary flex flex-col">
@@ -407,8 +493,10 @@ const FretboardVisualizer: React.FC<Props> = ({
         onOctaveSelectionModeChange={setOctaveSelectionMode}
         onExport={handleExportPng}
         onOpenSettings={() => setSettingsOpen(true)}
+        onExportImport={handleExportImport}
+        onOpenCredits={() => setCreditsModalOpen(true)}
       />
-      <main className="flex-1 flex flex-col items-center w-full px-2 sm:px-6 md:px-12">
+      <main className="flex-1 flex flex-col w-full px-2 sm:px-4 md:px-6 lg:px-12">
         {/* Orientation Warning */}
         {showOrientationWarning && (
           <div className="bg-yellow-600 text-white p-3 text-center text-sm font-medium mb-4 rounded-lg shadow w-full max-w-2xl mx-auto mt-4">
@@ -428,7 +516,7 @@ const FretboardVisualizer: React.FC<Props> = ({
           <div className="min-w-max">
             {/* Fretboard Card */}
             <section className="w-full flex flex-col items-center mt-6">
-              <div className="bg-[#23272F] rounded-xl shadow-lg p-4 w-full min-w-max flex flex-col items-center">
+              <div className="bg-[#23272F] rounded-xl shadow-lg p-4 w-full max-w-4xl min-w-max flex flex-col">
                 <div className="w-full flex flex-col gap-2 mb-4">
                   {/* Note Center, Interval/Degree, Clear Selection */}
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -496,8 +584,8 @@ const FretboardVisualizer: React.FC<Props> = ({
                     ) : null}
                   </div>
                 </div>
-                <div className="relative w-full">
-                  <div ref={fretboardGridRef}>
+                <div className="relative w-full flex justify-center">
+                  <div ref={fretboardGridRef} className="inline-block">
                     <FretboardGrid
                       board={board}
                       highlightedNotes={highlightedNotes}
@@ -528,8 +616,8 @@ const FretboardVisualizer: React.FC<Props> = ({
               </div>
             </section>
             {/* Controls Panel (Scales/Chords/Overrides) */}
-            <section className="w-full mt-6">
-              <div className="bg-[#23272F] rounded-xl shadow-lg p-4 w-full flex flex-col min-w-max">
+            <section className="w-full flex flex-col items-center mt-6">
+              <div className="bg-[#23272F] rounded-xl shadow-lg p-4 w-full max-w-4xl flex flex-col min-w-max">
                 <ScaleManager
                   scales={scales}
                   onScalesChange={setScales}
@@ -558,6 +646,22 @@ const FretboardVisualizer: React.FC<Props> = ({
         tritoneLabel={tritoneLabel}
         onTritoneLabelChange={setTritoneLabel}
       />
+      <ImportDropzoneModal
+        open={importDropzoneOpen}
+        onClose={() => setImportDropzoneOpen(false)}
+        onFileParsed={handleDropzoneFileParsed}
+      />
+      <SaveLoadConfirmModal
+        open={saveLoadModalOpen}
+        mode={saveLoadMode}
+        scales={saveLoadMode === 'export' ? scales : importData?.scales || []}
+        noteOverrides={saveLoadMode === 'export' ? noteOverrides : importData?.noteOverrides || {}}
+        onClose={() => { setSaveLoadModalOpen(false); setImportData(null); }}
+        onCancel={() => { setSaveLoadModalOpen(false); setImportData(null); }}
+        onConfirm={saveLoadMode === 'export' ? handleExportConfirm : handleImportConfirm}
+        importData={saveLoadMode === 'import' ? importData || undefined : undefined}
+      />
+      <CreditsModal open={creditsModalOpen} onClose={() => setCreditsModalOpen(false)} />
     </div>
   );
 };
