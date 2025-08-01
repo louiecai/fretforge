@@ -148,12 +148,41 @@ export class Fretboard {
    */
   getScaleNotes(rootNote: Note, scaleType: string): Note[] {
     const scaleIntervals: Record<string, number[]> = {
-      diatonicMinor: [0, 2, 3, 5, 7, 8, 10],
-      diatonicMajor: [0, 2, 4, 5, 7, 9, 11],
+      // Traditional Scales
+      minor: [0, 2, 3, 5, 7, 8, 10],
+      major: [0, 2, 4, 5, 7, 9, 11],
+      harmonicMinor: [0, 2, 3, 5, 7, 8, 11],
+      melodicMinor: [0, 2, 3, 5, 7, 9, 11],
       pentatonicMinor: [0, 3, 5, 7, 10],
       pentatonicMajor: [0, 2, 4, 7, 9],
       bluesMinor: [0, 3, 5, 6, 7, 10],
       bluesMajor: [0, 2, 3, 4, 7, 9],
+
+      // Modes
+      dorian: [0, 2, 3, 5, 7, 9, 10],
+      phrygian: [0, 1, 4, 5, 7, 8, 10],
+      lydian: [0, 2, 4, 6, 7, 9, 11],
+      mixolydian: [0, 2, 4, 5, 7, 9, 10],
+      locrian: [0, 1, 3, 5, 6, 8, 10],
+
+      // Jazz Scales
+      altered: [0, 1, 3, 4, 6, 8, 10],
+      lydianDominant: [0, 2, 4, 6, 7, 9, 10],
+      wholeTone: [0, 2, 4, 6, 8, 10],
+      diminished: [0, 2, 3, 5, 6, 8, 9, 11],
+
+      // World Music Scales
+      hirajoshi: [0, 2, 3, 7, 8],
+      phrygianDominant: [0, 1, 4, 5, 7, 8, 10],
+      hungarianMinor: [0, 2, 3, 6, 7, 8, 11],
+      persian: [0, 1, 4, 5, 6, 8, 11],
+
+      // Modern Scales
+      octatonic: [0, 2, 3, 5, 6, 8, 9, 11],
+      hexatonic: [0, 2, 4, 6, 8, 10],
+      chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      tritone: [0, 6],
+
       // Chords
       maj: [0, 4, 7], // Major triad
       min: [0, 3, 7], // Minor triad
@@ -164,6 +193,13 @@ export class Fretboard {
       '7': [0, 4, 7, 10], // Dominant 7th
       dim7: [0, 3, 6, 9], // Diminished 7th
       m7b5: [0, 3, 6, 10], // Half-diminished 7th
+      maj9: [0, 4, 7, 11, 14], // Major 9th
+      min9: [0, 3, 7, 10, 14], // Minor 9th
+      '9': [0, 4, 7, 10, 14], // Dominant 9th
+      maj6: [0, 4, 7, 9], // Major 6th
+      min6: [0, 3, 7, 9], // Minor 6th
+      sus2: [0, 2, 7], // Suspended 2nd
+      sus4: [0, 5, 7], // Suspended 4th
     };
 
     const intervals = scaleIntervals[scaleType];

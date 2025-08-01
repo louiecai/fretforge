@@ -23,6 +23,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import React, { useEffect, useRef, useState } from 'react';
 import { Note } from '../lib/Note';
+import ScaleSelectorAdvanced from './ScaleSelectorAdvanced';
 
 /**
  * Scale object representing a scale/chord on the fretboard.
@@ -52,13 +53,36 @@ interface ScaleManagerProps {
 
 const SCALE_TYPES = [
   { value: 'scalesSeparator', label: '────────── Scales ──────────', group: 'separator' },
-  { value: 'diatonicMinor', label: 'Diatonic Minor', group: 'scale' },
-  { value: 'diatonicMajor', label: 'Diatonic Major', group: 'scale' },
+  { value: 'minor', label: 'Minor', group: 'scale' },
+  { value: 'major', label: 'Major', group: 'scale' },
+  { value: 'harmonicMinor', label: 'Harmonic Minor', group: 'scale' },
+  { value: 'melodicMinor', label: 'Melodic Minor', group: 'scale' },
   { value: 'pentatonicMinor', label: 'Pentatonic Minor', group: 'scale' },
   { value: 'pentatonicMajor', label: 'Pentatonic Major', group: 'scale' },
   { value: 'bluesMinor', label: 'Blues Minor', group: 'scale' },
   { value: 'bluesMajor', label: 'Blues Major', group: 'scale' },
-  { value: 'separator', label: '────────── Chords ──────────', group: 'separator' },
+  { value: 'modesSeparator', label: '────────── Modes ──────────', group: 'separator' },
+  { value: 'dorian', label: 'Dorian Mode', group: 'mode' },
+  { value: 'phrygian', label: 'Phrygian Mode', group: 'mode' },
+  { value: 'lydian', label: 'Lydian Mode', group: 'mode' },
+  { value: 'mixolydian', label: 'Mixolydian Mode', group: 'mode' },
+  { value: 'locrian', label: 'Locrian Mode', group: 'mode' },
+  { value: 'jazzSeparator', label: '────────── Jazz Scales ──────────', group: 'separator' },
+  { value: 'altered', label: 'Altered Scale', group: 'jazz' },
+  { value: 'lydianDominant', label: 'Lydian Dominant', group: 'jazz' },
+  { value: 'wholeTone', label: 'Whole Tone', group: 'jazz' },
+  { value: 'diminished', label: 'Diminished Scale', group: 'jazz' },
+  { value: 'worldSeparator', label: '────────── World Music ──────────', group: 'separator' },
+  { value: 'hirajoshi', label: 'Hirajoshi', group: 'world' },
+  { value: 'phrygianDominant', label: 'Phrygian Dominant', group: 'world' },
+  { value: 'hungarianMinor', label: 'Hungarian Minor', group: 'world' },
+  { value: 'persian', label: 'Persian Scale', group: 'world' },
+  { value: 'modernSeparator', label: '────────── Modern Scales ──────────', group: 'separator' },
+  { value: 'octatonic', label: 'Octatonic', group: 'modern' },
+  { value: 'hexatonic', label: 'Hexatonic', group: 'modern' },
+  { value: 'chromatic', label: 'Chromatic', group: 'modern' },
+  { value: 'tritone', label: 'Tritone Scale', group: 'modern' },
+  { value: 'chordsSeparator', label: '────────── Chords ──────────', group: 'separator' },
   { value: 'maj', label: 'Major Chord', group: 'chord' },
   { value: 'min', label: 'Minor Chord', group: 'chord' },
   { value: 'dim', label: 'Diminished Chord', group: 'chord' },
@@ -68,6 +92,13 @@ const SCALE_TYPES = [
   { value: '7', label: 'Dominant 7th Chord', group: 'chord' },
   { value: 'dim7', label: 'Diminished 7th Chord', group: 'chord' },
   { value: 'm7b5', label: 'Half-diminished 7th (m7♭5)', group: 'chord' },
+  { value: 'maj9', label: 'Major 9th', group: 'chord' },
+  { value: 'min9', label: 'Minor 9th', group: 'chord' },
+  { value: '9', label: 'Dominant 9th', group: 'chord' },
+  { value: 'maj6', label: 'Major 6th', group: 'chord' },
+  { value: 'min6', label: 'Minor 6th', group: 'chord' },
+  { value: 'sus2', label: 'Suspended 2nd', group: 'chord' },
+  { value: 'sus4', label: 'Suspended 4th', group: 'chord' },
 ];
 
 // Predefined color palette for consistent but varied colors
@@ -181,6 +212,49 @@ const convertNoteName = (noteName: string, preferFlat: boolean): string => {
 };
 
 /**
+ * Format scale name from camelCase to proper display format.
+ * @param scaleValue - The scale value in camelCase
+ * @returns Formatted scale name
+ */
+const formatScaleName = (scaleValue: string): string => {
+  // Handle special cases first
+  const specialCases: Record<string, string> = {
+    'major': 'Major',
+    'minor': 'Minor',
+    'harmonicMinor': 'Harmonic Minor',
+    'melodicMinor': 'Melodic Minor',
+    'pentatonicMajor': 'Pentatonic Major',
+    'pentatonicMinor': 'Pentatonic Minor',
+    'bluesMajor': 'Blues Major',
+    'bluesMinor': 'Blues Minor',
+    'phrygianDominant': 'Phrygian Dominant',
+    'hungarianMinor': 'Hungarian Minor',
+    'lydianDominant': 'Lydian Dominant',
+    'wholeTone': 'Whole Tone',
+    'maj7': 'Major 7th',
+    'min7': 'Minor 7th',
+    'dim7': 'Diminished 7th',
+    'm7b5': 'Half-diminished 7th',
+    'maj9': 'Major 9th',
+    'min9': 'Minor 9th',
+    'maj6': 'Major 6th',
+    'min6': 'Minor 6th',
+    'sus2': 'Suspended 2nd',
+    'sus4': 'Suspended 4th',
+  };
+
+  if (specialCases[scaleValue]) {
+    return specialCases[scaleValue];
+  }
+
+  // General camelCase to Title Case conversion
+  return scaleValue
+    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+    .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
+    .trim();
+};
+
+/**
  * Get the notes for a scale or chord.
  * @param root - Root note name (e.g., 'C, )* @param scaleType - Scale or chord type (e.g., diatonicMajor', 'maj')
  * @param preferFlat - Whether to use flats (♭) instead of sharps (♯)
@@ -205,12 +279,41 @@ const getScaleNotes = (root: string, scaleType: string, preferFlat: boolean): st
 
   // Scale/chord intervals
   const scaleIntervals: Record<string, number[]> = {
-    diatonicMinor: [0, 2, 3, 5, 7, 8, 10],
-    diatonicMajor: [0, 2, 4, 5, 7, 9, 11],
+    // Traditional Scales
+    minor: [0, 2, 3, 5, 7, 8, 10],
+    major: [0, 2, 4, 5, 7, 9, 11],
+    harmonicMinor: [0, 2, 3, 5, 7, 8, 11],
+    melodicMinor: [0, 2, 3, 5, 7, 9, 11],
     pentatonicMinor: [0, 3, 5, 7, 10],
     pentatonicMajor: [0, 2, 4, 7, 9],
     bluesMinor: [0, 3, 5, 6, 7, 10],
     bluesMajor: [0, 2, 3, 4, 7, 9],
+
+    // Modes
+    dorian: [0, 2, 3, 5, 7, 9, 10],
+    phrygian: [0, 1, 4, 5, 7, 8, 10],
+    lydian: [0, 2, 4, 6, 7, 9, 11],
+    mixolydian: [0, 2, 4, 5, 7, 9, 10],
+    locrian: [0, 1, 3, 5, 6, 8, 10],
+
+    // Jazz Scales
+    altered: [0, 1, 3, 4, 6, 8, 10],
+    lydianDominant: [0, 2, 4, 6, 7, 9, 10],
+    wholeTone: [0, 2, 4, 6, 8, 10],
+    diminished: [0, 2, 3, 5, 6, 8, 9, 11],
+
+    // World Music Scales
+    hirajoshi: [0, 2, 3, 7, 8],
+    phrygianDominant: [0, 1, 4, 5, 7, 8, 10],
+    hungarianMinor: [0, 2, 3, 6, 7, 8, 11],
+    persian: [0, 1, 4, 5, 6, 8, 11],
+
+    // Modern Scales
+    octatonic: [0, 2, 3, 5, 6, 8, 9, 11],
+    hexatonic: [0, 2, 4, 6, 8, 10],
+    chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    tritone: [0, 6],
+
     // Chords
     maj: [0, 4, 7], // Major triad
     min: [0, 3, 7], // Minor triad
@@ -221,6 +324,13 @@ const getScaleNotes = (root: string, scaleType: string, preferFlat: boolean): st
     '7': [0, 4, 7, 10], // Dominant 7th
     dim7: [0, 3, 6, 9], // Diminished 7th
     m7b5: [0, 3, 6, 10], // Half-diminished 7th
+    maj9: [0, 4, 7, 11, 14], // Major 9th
+    min9: [0, 3, 7, 10, 14], // Minor 9th
+    '9': [0, 4, 7, 10, 14], // Dominant 9th
+    maj6: [0, 4, 7, 9], // Major 6th
+    min6: [0, 3, 7, 9], // Minor 6th
+    sus2: [0, 2, 7], // Suspended 2nd
+    sus4: [0, 5, 7], // Suspended 4th
   };
 
   const rootIndex = noteToIndex[root];
@@ -275,21 +385,27 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
   preferFlat = false
 }) => {
   // State for new scale
-  const [newRoot, setNewRoot] = useState('A');
-  const [newType, setNewType] = useState('pentatonicMinor');
   const [newColor, setNewColor] = useState(getRandomColor(scales.map(s => s.color)));
 
   // State for new note override
   const [newNoteOverride, setNewNoteOverride] = useState('A');
   const [newNoteColor, setNewNoteColor] = useState(getRandomColor(Object.values(noteOverrides)));
 
+  // State for advanced scale selector
+  const [showAdvancedSelector, setShowAdvancedSelector] = useState(false);
+  const [pendingScale, setPendingScale] = useState<{ scale: string; root: string; color: string } | null>(null);
+
   // Local color state for each scale row
-  const [colorInputs, setColorInputs] = useState<string[]>(scales.map(s => s.color));
+  const [rowColors, setRowColors] = useState<Record<number, string>>({});
   const debounceTimeouts = useRef<(NodeJS.Timeout | null)[]>([]);
 
   // Sync colorInputs with scales if scales change (add/remove or reorder)
   useEffect(() => {
-    setColorInputs(scales.map(s => s.color));
+    const newRowColors: Record<number, string> = {};
+    scales.forEach((s, i) => {
+      newRowColors[i] = s.color;
+    });
+    setRowColors(newRowColors);
   }, [scales]);
 
   // Update scale roots and newRoot when preferFlat changes
@@ -305,36 +421,10 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
       onScalesChange(updatedScales);
     }
     // Also update newRoot if needed
-    setNewRoot(prev => convertNoteName(prev, preferFlat));
+    // setNewRoot(prev => convertNoteName(prev, preferFlat)); // This line is removed
   }, [preferFlat]);
 
   const ROOTS = Array.from({ length: 12 }, (_, i) => Note.getNoteName(i, preferFlat));
-
-  // Add new scale
-  const isDuplicate = scales.some(s => s.root === newRoot && s.scale === newType);
-  const isValidScaleType = newType && newType !== 'separator' && newType !== 'scalesSeparator' && newType !== '';
-  const handleAdd = () => {
-    if (!newRoot) {
-      console.warn('Cannot add: newRoot is empty');
-      return;
-    }
-    if (!isValidScaleType) {
-      console.warn('Cannot add: invalid scale type');
-      return;
-    }
-    if (!newColor) {
-      console.warn('Cannot add: newColor is empty');
-      return;
-    }
-    if (isDuplicate) {
-      console.warn('Cannot add: duplicate scale/root');
-      return;
-    }
-    onScalesChange([...scales, { root: newRoot, scale: newType, color: newColor }]);
-    setNewRoot('A');
-    setNewType('pentatonicMinor');
-    setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
-  };
 
   // Update scale inline (root/type: immediate, color: debounced)
   const handleEdit = (idx: number, field: keyof Scale, value: string | boolean) => {
@@ -343,8 +433,8 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
     }
     if (field === 'color') {
       // Update local color input immediately
-      setColorInputs(inputs => {
-        const updated = [...inputs];
+      setRowColors(inputs => {
+        const updated = { ...inputs };
         updated[idx] = value as string;
         return updated;
       });
@@ -369,6 +459,22 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
   const handleRemove = (idx: number) => {
     const updatedScales = scales.filter((_, i) => i !== idx);
     onScalesChange(updatedScales);
+  };
+
+  // Handle scale selection from advanced selector
+  const handleAdvancedScaleSelect = (scale: string, root: string) => {
+    setPendingScale({ scale, root, color: getRandomColor(scales.map(s => s.color)) });
+  };
+
+  // Add pending scale with color
+  const handleAddPendingScale = () => {
+    if (!pendingScale) return;
+
+    const { scale, root } = pendingScale;
+    const color = getRandomColor(scales.map(s => s.color));
+
+    onScalesChange([...scales, { root, scale, color }]);
+    setPendingScale(null);
   };
 
   // Add note override
@@ -422,8 +528,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => {
-              setNewRoot('A');
-              setNewType('pentatonicMinor');
+              // setNewRoot('A'); // This line is removed
               setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
@@ -432,8 +537,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           </button>
           <button
             onClick={() => {
-              setNewRoot('E');
-              setNewType('pentatonicMinor');
+              // setNewRoot('E'); // This line is removed
               setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
@@ -442,8 +546,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           </button>
           <button
             onClick={() => {
-              setNewRoot('C');
-              setNewType('diatonicMajor');
+              // setNewRoot('C'); // This line is removed
               setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
@@ -452,8 +555,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           </button>
           <button
             onClick={() => {
-              setNewRoot('A');
-              setNewType('bluesMinor');
+              // setNewRoot('A'); // This line is removed
               setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
@@ -462,8 +564,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           </button>
           <button
             onClick={() => {
-              setNewRoot('G');
-              setNewType('maj');
+              // setNewRoot('G'); // This line is removed
               setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
@@ -472,8 +573,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           </button>
           <button
             onClick={() => {
-              setNewRoot('Am');
-              setNewType('min');
+              // setNewRoot('Am'); // This line is removed
               setNewColor(getRandomColor([...scales.map(s => s.color), newColor]));
             }}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-textsecondary rounded text-xs font-medium transition-colors"
@@ -501,7 +601,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             <button
               onClick={() => {
                 onScalesChange([]);
-                setColorInputs([]);
+                setRowColors({});
               }}
               className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded text-xs font-semibold shadow transition-colors"
             >
@@ -510,7 +610,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           )}
         </div>
 
-        {/* Add New Scale/Chord Form */}
+        {/* Add New Scale/Chord Section */}
         <div className="mb-4 bg-gray-800 rounded-lg border border-gray-600 shadow p-4">
           <h4 className="text-xs font-semibold text-textprimary mb-3 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -518,31 +618,56 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
             </svg>
             Add New Scale/Chord
           </h4>
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <select value={newRoot} onChange={e => setNewRoot(e.target.value)} className="bg-panel text-textprimary rounded px-3 py-2 text-sm border border-gray-700 focus:ring-2 focus:ring-accent w-full sm:w-auto">
-              {ROOTS.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <select value={newType} onChange={e => setNewType(e.target.value)} className="bg-panel text-textprimary rounded px-3 py-2 text-sm flex-1 border border-gray-700 focus:ring-2 focus:ring-accent">
-              {SCALE_TYPES.map(s =>
-                s.group === 'separator'
-                  ? <option key={s.value} value="" disabled>{s.label}</option>
-                  : <option key={s.value} value={s.value}>{s.label}</option>
-              )}
-            </select>
-            <div className="flex items-center gap-1">
-              <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} className="w-10 h-10 p-0 border-2 border-gray-700 rounded focus:ring-2 focus:ring-accent bg-panel" />
-              <button
-                onClick={() => setNewColor(getRandomColor([...scales.map(s => s.color), newColor]))}
-                className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors"
-                title="Randomize Color"
-              >
-                🎲
-              </button>
+
+          {/* Pending Scale Display */}
+          {pendingScale && (
+            <div className="mb-3 p-3 bg-accent bg-opacity-10 border border-accent rounded-lg">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={pendingScale.root}
+                      onChange={(e) => setPendingScale({ ...pendingScale, root: e.target.value })}
+                      className="bg-panel text-textprimary rounded px-2 py-1 text-sm border border-gray-700 focus:ring-2 focus:ring-accent"
+                    >
+                      {ROOTS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <span className="text-sm font-medium text-white">
+                      {formatScaleName(pendingScale.scale)}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    Ready to add
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAddPendingScale}
+                    className="px-3 py-1 bg-accent text-white rounded text-xs font-medium hover:bg-accentlight transition-colors"
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => setPendingScale(null)}
+                    className="px-3 py-1 bg-gray-600 text-gray-300 rounded text-xs font-medium hover:bg-gray-500 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
-            <button onClick={handleAdd} className="px-4 py-2 bg-accent text-white rounded hover:bg-accentlight text-sm font-semibold shadow w-full sm:w-auto transition-colors" disabled={isDuplicate || !isValidScaleType}>
-              Add
-            </button>
-          </div>
+          )}
+
+          {/* Advanced Selector Button */}
+          <button
+            onClick={() => setShowAdvancedSelector(true)}
+            className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg border-2 border-dashed border-gray-600 hover:border-gray-500 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span className="font-medium">Browse Scale Library</span>
+          </button>
         </div>
 
         <DndContext
@@ -588,9 +713,9 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
                         )}
                       </select>
                       <div className="flex items-center gap-1 min-w-0">
-                        <input type="color" value={colorInputs[idx] ?? s.color} onChange={e => handleEdit(idx, 'color', e.target.value)} className="w-10 h-10 p-0 border-2 border-gray-700 rounded focus:ring-2 focus:ring-accent bg-panel flex-shrink-0" />
+                        <input type="color" value={rowColors[idx] ?? s.color} onChange={e => handleEdit(idx, 'color', e.target.value)} className="w-10 h-10 p-0 border-2 border-gray-700 rounded focus:ring-2 focus:ring-accent bg-panel flex-shrink-0" />
                         <button
-                          onClick={() => handleEdit(idx, 'color', getRandomColor([...scales.map(s => s.color), colorInputs[idx] ?? s.color]))}
+                          onClick={() => handleEdit(idx, 'color', getRandomColor([...scales.map(s => s.color), rowColors[idx] ?? s.color]))}
                           className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors flex-shrink-0"
                           title="Randomize Color"
                         >
@@ -610,7 +735,7 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
                           </button>
                           {/* Tooltip */}
                           <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                            <div className="font-semibold mb-1">Notes in {s.root} {SCALE_TYPES.find(st => st.value === s.scale)?.label}:</div>
+                            <div className="font-semibold mb-1">Notes in {s.root} {formatScaleName(s.scale)}:</div>
                             <div className="flex flex-wrap gap-1">
                               {scaleNotes.map((note, noteIdx) => (
                                 <span key={noteIdx} className="px-2 py-1 bg-gray-700 rounded text-xs">
@@ -716,6 +841,14 @@ const ScaleManager: React.FC<ScaleManagerProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Advanced Scale Selector Modal */}
+      <ScaleSelectorAdvanced
+        isOpen={showAdvancedSelector}
+        onClose={() => setShowAdvancedSelector(false)}
+        onScaleChange={handleAdvancedScaleSelect}
+        preferFlat={preferFlat}
+      />
     </div>
   );
 };
